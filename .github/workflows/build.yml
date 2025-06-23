@@ -1,0 +1,49 @@
+name: Build Python Lambda Artifact
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  id-token: write
+  contents: read
+  actions: read
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  SHARED_BUILD_DATA_BUCKET: ${{ vars.SHARED_BUILD_DATA_BUCKET }}
+  MSS_FINANCIAL_SENTIMENT_LAMBDA_NAME: ${{ vars.MSS_FINANCIAL_SENTIMENT_LAMBDA_NAME }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -t package
+
+      - name: Copy source files (excluding CSV)
+        run: |
+          rsync -av --exclude='Loughran-McDonald_MasterDictionary_1993-2024.csv' . package/
+
+      - name: Zip Lambda artifact
+        working-directory: package
+        run: zip -r ../mss-financial-sentiment-lambda.zip .
+
+      - name: Upload artifact to shared S3 bucket
+        run: |
+          aws s3 cp mss-financial-sentiment-lambda.zip s3://$SHARED_BUILD_DATA_BUCKET/deploy/$MSS_FINANCIAL_SENTIMENT_LAMBDA_NAME/$MSS_FINANCIAL_SENTIMENT_LAMBDA_NAME.zip
