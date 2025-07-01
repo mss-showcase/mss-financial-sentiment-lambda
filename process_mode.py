@@ -151,9 +151,9 @@ def run_process_mode(event, context):
             results.append(result)
         except Exception as e:
             if retry_count >= 5:
-                print(f"Dropping message for {url} after {retry_count} retries.")
+                print(f"Dropping message for {url} after {retry_count} retries. Last error: {e}")
                 continue
             msg['retry_count'] = retry_count + 1
             sqs.send_message(QueueUrl=SQS_QUEUE_URL, MessageBody=str(msg))
-            print(f"Re-queued message for {url}, retry_count={msg['retry_count']}")
+            print(f"Re-queued message for {url}, retry_count={msg['retry_count']}, error: {e}")
     return results
