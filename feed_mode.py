@@ -1,18 +1,22 @@
 import os
 import feedparser
 import boto3
+import re
 from time import time
 from dynamodb_callbacks import get_last_feed_pubdate_callback, set_last_feed_pubdate_callback, check_processed_callback
 
 # SQS setup
 SQS_QUEUE_URL = os.environ.get("SQS_QUEUE_URL")
+FEED_URLS = os.environ.get("FEED_URLS", "https://finance.yahoo.com/news/rssindex,https://www.cnbc.com/id/15839069/device/rss/rss.html,https://feeds.content.dowjones.io/public/rss/mw_realtimeheadlines")
 sqs = boto3.client("sqs")
 
 def run_feed_mode(event, context):
     """
     Reads RSS feeds, deduplicates, and pushes new entries to SQS. Updates feed pubdate in DynamoDB.
     """
-    feedUrls = ["https://www.cnbc.com/id/15839069/device/rss/rss.html"]
+    url_pattern = re.compile(r'^https?://[\w\.-]+(?:/[\w\.-]*)*')
+    feedUrls_env = FEED_URLS
+    feedUrls = [url.strip() for url in feedUrls_env.split(",") if url.strip() and url_pattern.match(url.strip())]
     results = []
     for feedUrl in feedUrls:
         feed = feedparser.parse(feedUrl)
