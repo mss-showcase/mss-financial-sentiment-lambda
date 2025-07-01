@@ -1,5 +1,4 @@
 import os
-from handler_internal import lambda_handler_internal
 try:
     from dynamodb_callbacks import check_processed_callback, persist_callback, get_last_feed_pubdate_callback, set_last_feed_pubdate_callback
 except ImportError:

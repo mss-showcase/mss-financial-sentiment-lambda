@@ -47,4 +47,4 @@ jobs:
 
       - name: Upload artifact to shared S3 bucket
         run: |
-          aws s3 cp mss-financial-sentiment-lambda.zip s3://$SHARED_BUILD_DATA_BUCKET/deploy/$MSS_FINANCIAL_SENTIMENT_LAMBDA_NAME/$MSS_FINANCIAL_SENTIMENT_LAMBDA_NAME.zip
+          aws s3 cp mss-financial-sentiment-lambda.zip s3://$SHARED_BUILD_DATA_BUCKET/deploy/$FILENAME_OF_SENTIMENT_LAMBDAS_ON_S3_BUILD_BUCKET/$FILENAME_OF_SENTIMENT_LAMBDAS_ON_S3_BUILD_BUCKET.zip
