@@ -35,9 +35,11 @@ def run_feed_mode(event, context):
                     "title": title,
                     "tickers": related_tickers,
                     "feedUrl": feedUrl,
-                    "pubdate": getattr(entry, "published", None) or getattr(entry, "pubDate", None) or time()
+                    "pubdate": getattr(entry, "published", None) or getattr(entry, "pubDate", None) or time(),
+                    "retry_count": 0
                 }
                 sqs.send_message(QueueUrl=SQS_QUEUE_URL, MessageBody=str(msg))
+                print(f"Enqueued feed entry: {msg}")  # Log the enqueued message
                 results.append(msg)
         if feed_pubdate:
             set_last_feed_pubdate_callback(feedUrl, feed_pubdate)
