@@ -153,8 +153,9 @@ def run_process_mode(event, context):
             result = {
                 "url": url,
                 "title": title,
-                "tickers": related_tickers,
-                "sentiment": sentiment,
+                "tickers": ",".join(related_tickers),  # Flatten tickers to comma-separated string
+                "sentiment_score": sentiment["score"],  # Flatten sentiment score
+                "sentiment_label": sentiment["label"],  # Flatten sentiment label
                 "feedUrl": feedUrl,
                 "pubdate": pubdate
             }
@@ -169,3 +170,9 @@ def run_process_mode(event, context):
             sqs.send_message(QueueUrl=SQS_QUEUE_URL, MessageBody=str(msg))
             print(f"Re-queued message for {url}, retry_count={msg['retry_count']}, error: {e}")
     return results
+
+def parse_tickers_from_string(ticker_string):
+    """
+    Parses a comma-separated ticker string back to a list.
+    """
+    return [ticker.strip() for ticker in ticker_string.split(",") if ticker.strip()]
