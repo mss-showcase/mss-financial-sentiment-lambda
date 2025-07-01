@@ -8,6 +8,7 @@ import requests
 from bs4 import BeautifulSoup
 from sentiment import load_lexicons, sentiment_score
 from dynamodb_callbacks import persist_callback
+from decimal import Decimal
 
 # SQS setup
 SQS_QUEUE_URL = os.environ.get("SQS_QUEUE_URL")
@@ -113,6 +114,16 @@ def filterTextByTickers(entry, text, tickers):
             return True
     return False
 
+def convert_floats(obj):
+    if isinstance(obj, float):
+        return Decimal(str(obj))
+    elif isinstance(obj, dict):
+        return {k: convert_floats(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_floats(i) for i in obj]
+    else:
+        return obj
+
 def run_process_mode(event, context):
     """
     Consumes SQS messages, fetches article text, runs sentiment, and stores in DynamoDB.
@@ -147,6 +158,7 @@ def run_process_mode(event, context):
                 "feedUrl": feedUrl,
                 "pubdate": pubdate
             }
+            result = convert_floats(result)
             persist_callback(result)
             results.append(result)
         except Exception as e:
