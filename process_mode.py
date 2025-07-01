@@ -36,6 +36,30 @@ else:
         s3_key="Loughran-McDonald_MasterDictionary_1993-2024.csv"
     )
 
+# Ticker to company name/aliases mapping for fulltext detection
+TICKER_ALIASES = {
+    "AAPL": ["AAPL", "Apple", "Apple Inc."],
+    "MSFT": ["MSFT", "Microsoft", "Microsoft Corp", "Microsoft Corporation"],
+    "GOOGL": ["GOOGL", "Google", "Alphabet", "Alphabet Inc."],
+    "AMZN": ["AMZN", "Amazon", "Amazon.com", "Amazon.com Inc."],
+    "NVDA": ["NVDA", "Nvidia", "Nvidia Corporation"],
+    "META": ["META", "Meta", "Facebook", "Meta Platforms", "Meta Platforms Inc."],
+    "TSLA": ["TSLA", "Tesla", "Tesla Inc."]
+}
+
+def detect_related_tickers(text, ticker_aliases=TICKER_ALIASES):
+    """
+    Returns a list of tickers whose aliases are found in the text (case-insensitive).
+    """
+    found = []
+    text_upper = text.upper()
+    for ticker, aliases in ticker_aliases.items():
+        for alias in aliases:
+            if alias.upper() in text_upper:
+                found.append(ticker)
+                break
+    return found
+
 def getFeedArticleText(url):
     """
     Downloads the main article text from the given URL.
@@ -93,6 +117,7 @@ def run_process_mode(event, context):
     """
     Consumes SQS messages, fetches article text, runs sentiment, and stores in DynamoDB.
     Handles retry logic and drops items after 5 attempts.
+    Detects related tickers using fulltext/company name matching.
     """
     results = []
     records = event.get('Records', [])
@@ -100,21 +125,24 @@ def run_process_mode(event, context):
         msg = ast.literal_eval(record['body'])
         url = msg['url']
         title = msg['title']
-        tickers = msg['tickers']
         feedUrl = msg['feedUrl']
         pubdate = msg['pubdate']
         retry_count = msg.get('retry_count', 0)
         try:
             text = getFeedArticleText(url)
             if text is None:
-                # Permanent error, drop the item
                 print(f"Dropping message for {url} due to permanent error.")
+                continue
+            # Detect tickers in title + article text
+            related_tickers = detect_related_tickers(title + " " + text)
+            if not related_tickers:
+                print(f"No related tickers found for {url}, skipping.")
                 continue
             sentiment = sentiment_score(text, POS, NEG)
             result = {
                 "url": url,
                 "title": title,
-                "tickers": tickers,
+                "tickers": related_tickers,
                 "sentiment": sentiment,
                 "feedUrl": feedUrl,
                 "pubdate": pubdate
@@ -122,11 +150,9 @@ def run_process_mode(event, context):
             persist_callback(result)
             results.append(result)
         except Exception as e:
-            # Retry logic: if retry_count >= 5, drop the item
             if retry_count >= 5:
                 print(f"Dropping message for {url} after {retry_count} retries.")
                 continue
-            # Re-queue with incremented retry_count
             msg['retry_count'] = retry_count + 1
             sqs.send_message(QueueUrl=SQS_QUEUE_URL, MessageBody=str(msg))
             print(f"Re-queued message for {url}, retry_count={msg['retry_count']}")
